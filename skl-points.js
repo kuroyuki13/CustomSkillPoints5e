@@ -1,11 +1,12 @@
 import { libWrapper } from "./lib/libWrapper/shim.js";
 
 const EMPTY_VALUE = "-";
-const MODULE_NAME = "skill-points-5e";
-const SKILL_BONUS_KEY = "skill-bonus";
+const MODULE_NAME = "CustomSkillPoints5e";
+const SKILL_POINTS_ASSIGNED = "skill-points-assigned";
 const SKILL_NPROFS = 'proficiency_number';
 const SKILL_POINTS = 'skill_points_amount';
 const SKILL_POINTS_SPENT = 'skill_points_spent'
+
 Hooks.once("setup", () => {
     patchActor5ePrepareData();
     patchActor5eRollSkill();
@@ -21,7 +22,7 @@ function patchActor5ePrepareData() {
         let nprof = 0;
         for (let key in skills) {
             let skill = skills[key];
-            let bonus = this.getFlag(MODULE_NAME, `${key}.${SKILL_BONUS_KEY}`) || 0;
+            let bonus = this.getFlag(MODULE_NAME, `${key}.${SKILL_POINTS_ASSIGNED}`) || 0;
             let bonusAsInt = parseInt(Number(bonus));
 
 
@@ -53,7 +54,7 @@ function patchActor5ePrepareData() {
 function CalculateSkillPoints(actor) {
     let level = actor.data.data.details.level;
     let nprof = actor.getFlag(MODULE_NAME, SKILL_NPROFS);
-    //this.getFlag(MODULE_NAME, `${skillId}.${SKILL_BONUS_KEY}`);
+    //this.getFlag(MODULE_NAME, `${skillId}.${SKILL_POINTS_ASSIGNED}`);
     let sp = Math.round(((nprof / 4) * (level - 1)) + (2 * nprof));
     actor.setFlag(MODULE_NAME, SKILL_POINTS, sp);
 }
@@ -63,7 +64,7 @@ function GetSpendPoints(actor) {
     let spentPoints = 0;
     for (let key in skills) {
         //let skill = skills[key];
-        let bonus = actor.getFlag(MODULE_NAME, `${key}.${SKILL_BONUS_KEY}`) || 0;
+        let bonus = actor.getFlag(MODULE_NAME, `${key}.${SKILL_POINTS_ASSIGNED}`) || 0;
         let bonusAsInt = parseInt(Number(bonus));
 
         if (!isNaN(bonusAsInt)) {
@@ -79,7 +80,7 @@ function patchActor5eRollSkill() {
         console.log("rolling patch");
         console.log(args);
         const [ skillId, options ] = args;
-        const skillBonus = this.getFlag(MODULE_NAME, `${skillId}.${SKILL_BONUS_KEY}`);
+        const skillBonus = this.getFlag(MODULE_NAME, `${skillId}.${SKILL_POINTS_ASSIGNED}`);
         //const skillProf = this.getFlag(MODULE_NAME, `${skillId}.${SKILL_NPROFS}`);
         let bonus = 0;
         let negateProf = 0;
@@ -128,15 +129,19 @@ function injectActorSheet(app, html, data) {
     const skillpointsSelector = html.find(".skill-points-menu");
 
     let headerTitle = $("<div class='custom-skill-points-title'> Custom Skill Points </div>");
-    let profInput = $("<div class='proficiency-input flexrow'> <div>Proficiencies: </div><input type = 'text' size=2 class = 'profInput' id='profInput'> </div>");
-    let pointData = $(
+    let profInput = $(
+        "<div class='proficiency-input flexrow'>"+
+            "<div>Proficiencies: </div>"+
+            "<input type = 'text' size=2 class = 'profInput' id='profInput'>"+ 
+        "</div>");
+    
+        let pointData = $(
         "<div class='skillpoint-data flexrow'> " +
             "<div> available: </div>" +
             "<input type = 'text' size=2 class = 'skillpoint-data' readonly> " +
             "<div> spent: </div>" +
             "<input type = 'text' size=2 class = 'skillpoint-data' readonly> " +
         "</div>");
-
 
     skillpointsSelector.append(headerTitle);
     skillpointsSelector.append(profInput);
@@ -154,7 +159,7 @@ function injectActorSheet(app, html, data) {
     html.find(skillRowSelector).each(function () {
         const skillElem = $(this);
         const skillKey = $(this).attr("data-skill");
-        const bonusKey = `${skillKey}.${SKILL_BONUS_KEY}`;
+        const bonusKey = `${skillKey}.${SKILL_POINTS_ASSIGNED}`;
         const selectedAbility = actor.data.data.skills[skillKey].ability;
         /**/
         let selectElement = $("<select>");
@@ -183,7 +188,7 @@ function injectActorSheet(app, html, data) {
         /**/
         //create text box for bonus
         let textBoxElement = $('<input type="text" size=2>');
-        textBoxElement.addClass("skill-points-bonus");
+        textBoxElement.addClass("skill-points-assigned");
         textBoxElement.val(actor.getFlag(MODULE_NAME, bonusKey) || EMPTY_VALUE);
         /**/
         /**/

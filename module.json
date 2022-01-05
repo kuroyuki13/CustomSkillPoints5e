@@ -1,12 +1,12 @@
 {
-  "name": "skill-points-5e",
+  "name": "CustomSkillPoints5e",
   "title": "Skill points for D&D 5e",
   "description": "Gives the ability to use skill points instead of proficiencies",
   "systems": [
     "dnd5e"
   ],
   "version": "1.0.0",
-  "author": "Bart Aansorgh",
+  "author": "Kuroyuki",
   "esmodules": [
     "skl-points.js"
   ],
