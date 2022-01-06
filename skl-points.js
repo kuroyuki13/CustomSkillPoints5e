@@ -1,3 +1,4 @@
+import { registerSettings } from "../combat-utility-belt/modules/settings.js";
 import { libWrapper } from "./lib/libWrapper/shim.js";
 
 const EMPTY_VALUE = "-";
@@ -6,6 +7,13 @@ const SKILL_POINTS_ASSIGNED = "skill-points-assigned";
 const SKILL_NPROFS = 'proficiency_number';
 const SKILL_POINTS = 'skill_points_amount';
 const SKILL_POINTS_SPENT = 'skill_points_spent'
+const DOWNSHIFT_NONE = 'downshift_none';
+const DOWNSHIFT_ONCE = 'downshift_one_level'
+
+
+Hooks.once('init', () => {
+    RegisterSettings();
+});
 
 Hooks.once("setup", () => {
     patchActor5ePrepareData();
@@ -14,34 +22,42 @@ Hooks.once("setup", () => {
 
 Hooks.on("renderActorSheet", injectActorSheet);
 
-function patchActor5ePrepareData() {
-    libWrapper.register(MODULE_NAME, "CONFIG.Actor.documentClass.prototype.prepareData", function patchedPrepareData(wrapped, ...args) {
-        wrapped(...args);
-        
-        const skills = this.data.data.skills;
-        let nprof = 0;
-        for (let key in skills) {
-            let skill = skills[key];
-            let bonus = this.getFlag(MODULE_NAME, `${key}.${SKILL_POINTS_ASSIGNED}`) || 0;
-            let bonusAsInt = parseInt(Number(bonus));
+function RegisterSettings(){
+    game.settings.register(MODULE_NAME, "downshiftAmmount",{
+        name: "downshift formula",
+        hint: "how to calculate the available skill spoints. downshift two levels will on average be closest in total skill points to the original proficiency system."+ 
+        "downshift none gives more skillpoints, downshift three gives less. ",
+        scope: "world",
+        type: Number,
+        choices: {
+            0 : "downshift none",
+            1 : "downshift one level",
+            2 : "downshift two levels",
+            3 : "downshift three levels"
+        },
+        default: 2,
+        config: true
+    });
 
+    game.settings.register(MODULE_NAME, "maxSkillBonus",{
+        name: "Maximum Skillpoints assigned",
+        hint: "the maximum number of skillpoints that can be assigned to a single skill. Based of a multiplier against proficiency. " +
+        "A value of 1 clamps it to proficiency bonus, a value of 2 clamps it to two times proficiency bonus etc. with -1 being non-clamped",
+        scope: "world",
+        type: Number,
+        default: 1,
+        config: true
+    });
 
-            if (!isNaN(bonusAsInt)) {
-                skill.total += bonusAsInt;
-
-                // recalculate passive score, taking observant feat into account
-                const observant = this.data.flags.dnd5e?.observantFeat;
-                const passiveBonus = observant && CONFIG.DND5E.characterFlags.observantFeat.skills.includes(key) ? 5 : 0;
-                skill.passive = 10 + skill.total + passiveBonus;
-            }
-
-        }
-
-        //CalculateSkillPoints(this);
-        //let spendPoints = GetSpendPoints(this);
-        //this.setFlag(MODULE_NAME, SKILL_POINTS_SPENT, spendPoints);
-
-    }, "WRAPPER");
+    game.settings.register(MODULE_NAME, "useCusomtSkillPoints",{
+        name: "useCustomSkillPoints",
+        hint: "client side decision wether to use the custom skill points. If disabled, will not draw the sections on the character sheet and do the rolls",
+        scope: "client",
+        type: Boolean,
+        default: true,
+        config: true,
+        onChange: (_) => window.location.reload()
+    });
 }
 
 //calculate how many skill points actor should have depending in number of skill proficiencies.
@@ -50,7 +66,8 @@ function CalculateSkillPoints(actor) {
     let level = actor.data.data.details.level;
     let nprof = actor.getFlag(MODULE_NAME, SKILL_NPROFS);
     //this.getFlag(MODULE_NAME, `${skillId}.${SKILL_POINTS_ASSIGNED}`);
-    let sp = Math.round(((nprof / 4) * (level - 1)) + (2 * nprof));
+    let downshift = game.settings.get(MODULE_NAME, "downshiftAmmount");
+    let sp = Math.round( ((nprof / 4) * (level -downshift)) + (2 * nprof));
     return sp;
 }
 
@@ -69,9 +86,40 @@ function GetSpendPoints(actor) {
     return spentPoints;
 }
 
+function patchActor5ePrepareData() {
+    libWrapper.register(MODULE_NAME, "CONFIG.Actor.documentClass.prototype.prepareData", function patchedPrepareData(wrapped, ...args) {
+    wrapped(...args);
+    
+    if (!game.settings.get(MODULE_NAME, "useCusomtSkillPoints")){
+      return;  
+    } 
+
+        const skills = this.data.data.skills;
+        let nprof = 0;
+        for (let key in skills) {
+            let skill = skills[key];
+            let bonus = this.getFlag(MODULE_NAME, `${key}.${SKILL_POINTS_ASSIGNED}`) || 0;
+            let bonusAsInt = parseInt(Number(bonus));
+
+            if (!isNaN(bonusAsInt)) {
+                skill.total += bonusAsInt;
+                // recalculate passive score, taking observant feat into account
+                const observant = this.data.flags.dnd5e?.observantFeat;
+                const passiveBonus = observant && CONFIG.DND5E.characterFlags.observantFeat.skills.includes(key) ? 5 : 0;
+                skill.passive = 10 + skill.total + passiveBonus;
+            }
+        }
+
+    }, "WRAPPER");
+}
 
 function patchActor5eRollSkill() {
     libWrapper.register(MODULE_NAME, "CONFIG.Actor.documentClass.prototype.rollSkill", function patchedRollSkill(wrapped, ...args) {
+
+        if (!game.settings.get(MODULE_NAME, "useCusomtSkillPoints")){
+            return;  
+        } 
+
         const [ skillId, options ] = args;
         const skillBonus = this.getFlag(MODULE_NAME, `${skillId}.${SKILL_POINTS_ASSIGNED}`);
         let bonus = 0;
@@ -101,6 +149,11 @@ function patchActor5eRollSkill() {
 
 function injectActorSheet(app, html, data) {
     const actor = app.actor;
+
+    if (!game.settings.get(MODULE_NAME, "useCusomtSkillPoints")){
+        return;  
+    } 
+
     html.find(".skills-list").addClass("skill-customize");
 
     CreateSkillPointsBox(actor, html);
@@ -269,31 +322,31 @@ function CreateSkillPointAssignment(actor, html) {
                 let newTotal = GetSpendPoints(actor) + diff;
                 await actor.setFlag(MODULE_NAME, SKILL_POINTS_SPENT, newTotal);
                 await actor.unsetFlag(MODULE_NAME, assignedPointsKey);
-                console.log("dash");
             }
             else {
                 try {
-                    console.log("trying");
-                    console.log(newAssignedPoints);
+                    //assigned points shouldn't go above proficiency bonus
+                    let bonusMultiplier = game.settings.get(MODULE_NAME, "maxSkillBonus");
+                    
+                    let moreThanMaxBonus = (bonusMultiplier == -1) ? false :  newAssignedPoints > actor.data.data.prof._baseProficiency*bonusMultiplier;
+
                     let diff = (parseInt(newAssignedPoints) - GetPreviousAssignedAsInt(actor, assignedPointsKey));
                     let newTotal = GetSpendPoints(actor) + diff;
                     let tooMuch = newTotal > parseInt(actor.getFlag(MODULE_NAME, SKILL_POINTS));
+                    
                     const rollResult = await new Roll(`1d20 + ${newAssignedPoints}`).roll();
                     const valid = !isNaN(rollResult._total);
 
-                    if (valid && !tooMuch) {
+                    if (valid && !tooMuch && !moreThanMaxBonus) {
                         await actor.setFlag(MODULE_NAME, assignedPointsKey, newAssignedPoints);
                         await actor.setFlag(MODULE_NAME, SKILL_POINTS_SPENT, newTotal);
-                        console.log("success");
                     }
                     else {
                         textBoxElement.val(actor.getFlag(MODULE_NAME, assignedPointsKey) || EMPTY_VALUE);
-                        console.log("failed");
                     }
                 }
                 catch (err) {
                     textBoxElement.val(actor.getFlag(MODULE_NAME, assignedPointsKey) || EMPTY_VALUE);
-                    console.log("erreur");
                 }
             }
         });
