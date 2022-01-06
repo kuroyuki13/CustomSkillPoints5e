@@ -1,9 +1,7 @@
 .dnd5e.sheet.actor .skills-list > .skill-points-menu {
     border: 1px gray solid;
     border-radius: 5px;
-    margin: 1px;
-    margin-right: 3px;
-    margin-bottom: 5px;
+    margin: 1px 3px 5px 1px;
     padding: 2px;
 }
 
