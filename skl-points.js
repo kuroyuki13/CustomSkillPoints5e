@@ -68,10 +68,16 @@ function GetSpendPoints(actor) {
     const skills = actor.data.data.skills;
     let spentPoints = 0;
     for (let key in skills) {
-        let bonus = actor.getFlag(MODULE_NAME, `${key}.${SKILL_POINTS_ASSIGNED}`) || 0;
+        let bonus = parseInt(actor.getFlag(MODULE_NAME, `${key}.${SKILL_POINTS_ASSIGNED}`)) || 0;
+        console.log(bonus);
         spentPoints += bonus;
     }
+    console.log(spentPoints);
     return spentPoints;
+}
+
+function patchActor5ePrepareData() {
+    libWrapper.register(MODULE_NAME, "CONFIG.Actor.documentClass.prototype.prepareData", patchedPrepareData, "WRAPPER");
 }
 
 function patchedPrepareData(wrapped, ...args) {
@@ -82,10 +88,10 @@ function patchedPrepareData(wrapped, ...args) {
     } 
 
     const skills = this.data.data.skills;
-
+    console.log(this);
     for (let key in skills) {
         const skill = skills[key];
-        const bonus = this.getFlag(MODULE_NAME, `${key}.${SKILL_POINTS_ASSIGNED}`) || 0;
+        const bonus = parseInt(this.getFlag(MODULE_NAME, `${key}.${SKILL_POINTS_ASSIGNED}`)) || 0;
 
         skill.total += bonus;
         // recalculate passive score, taking observant feat into account
@@ -95,8 +101,10 @@ function patchedPrepareData(wrapped, ...args) {
     };
 };
 
-function patchActor5ePrepareData() {
-    libWrapper.register(MODULE_NAME, "CONFIG.Actor.documentClass.prototype.prepareData", patchedPrepareData, "WRAPPER");
+
+
+function patchActor5eRollSkill() {
+    libWrapper.register(MODULE_NAME, "CONFIG.Actor.documentClass.prototype.rollSkill", patchedRollSkill);
 }
 
 function patchedRollSkill(wrapped, ...args) {
@@ -106,22 +114,11 @@ function patchedRollSkill(wrapped, ...args) {
 
     const [ skillId, options ] = args;
     const skillBonus = this.getFlag(MODULE_NAME, `${skillId}.${SKILL_POINTS_ASSIGNED}`);
-    let bonus = 0;
-    let negateProf = 0;
-    if (skillBonus) {
-        bonus = skillBonus;
-
-    }
-    const activeSkill = this.data.data.skills[skillId];
-    if (activeSkill.prof.hasProficiency) {
-        negateProf = activeSkill.prof._baseProficiency * -1;
-    }
 
     const extraOptions = {
-        parts: ["@extra", "@negmod"],
+        parts: ["@extra"],
         data: {
             extra: skillBonus,
-            negmod: negateProf,
         },
     };
     mergeObject(options, extraOptions);
@@ -129,9 +126,6 @@ function patchedRollSkill(wrapped, ...args) {
     return wrapped(...args);
 };
 
-function patchActor5eRollSkill() {
-    libWrapper.register(MODULE_NAME, "CONFIG.Actor.documentClass.prototype.rollSkill", patchedRollSkill);
-}
 
 function injectActorSheet(app, html, _data) {
     const actor = app.actor;
@@ -148,14 +142,7 @@ function injectActorSheet(app, html, _data) {
 }
 
 function GetPreviousAssignedAsInt(actor, key) {
-    let previousAssigned = parseInt(actor.getFlag(MODULE_NAME, key));
-    if (isNaN(previousAssigned)) {
-        return 0;
-    }
-    else {
-        return previousAssigned;
-
-    }
+    return parseInt(actor.getFlag(MODULE_NAME, key)) || 0;
 }
 
 function CreateSkillPointsBox(actor, html) {
@@ -294,7 +281,9 @@ function CreateSkillPointAssignment(actor, html) {
             const newAssignedPoints = event.target.value;
             if (newAssignedPoints === "-" || newAssignedPoints === "0") {
                 textBoxElement.val(EMPTY_VALUE);
+                console.log("setting empty");
                 let diff = 0 - GetPreviousAssignedAsInt(actor, assignedPointsKey);
+                console.log(diff);
                 let newTotal = GetSpendPoints(actor) + diff;
                 await actor.setFlag(MODULE_NAME, SKILL_POINTS_SPENT, newTotal);
                 await actor.unsetFlag(MODULE_NAME, assignedPointsKey);
