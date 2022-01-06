@@ -189,19 +189,19 @@ function CreateSkillPointsBox(actor, html) {
 
     //create all html sections for skill points
     //first line: section title
-    let headerTitle = $("<div class='custom-skill-points-title'> Custom Skill Points </div>");
+    let headerTitle = $("<div class='custom-skill-points-title csp-title'>Custom Skill Points</div>");
     //second line parent
-    let profInputOuter = $("<div class='proficiency-input flexrow'></div>");
+    let profInputOuter = $("<div class='proficiency-input flexrow csp-wrapper'></div>");
     //second line children
-    let profInputText = $("<div>Proficiencies: </div>");
-    let profInputBox = $("<input type='number' size=2 class='profInput' id='profInput'>");
+    let profInputText = $("<div class='csp-label'>Proficiencies:</div>");
+    let profInputBox = $("<input type='number' class='profInput csp-input' id='profInput'>");
     //third line parent
-    let skillPointsDataOuter = $("<div class='skillpoint-data flexrow'></div>");
+    let skillPointsDataOuter = $("<div class='skillpoint-data flexrow csp-wrapper'></div>");
     //third line children
-    let skillPointsAvailableText = $("<div>Available:</div>");
-    let skillPointsAvailableInfo = $("<input type='text' size=2 class='skillpoint-data' disabled>");
-    let skillPointsSpentText = $("<div>Spent:</div>");
-    let skillPointsSpentInfo = $("<input type='text' size=2 class='skillpoint-data' disabled>");
+    let skillPointsAvailableText = $("<div class='csp-label'>Total available:</div>");
+    let skillPointsAvailableInfo = $("<input type='text' class='skillpoint-data csp-display' disabled>");
+    let skillPointsSpentText = $("<div class='csp-label'>Spent:</div>");
+    let skillPointsSpentInfo = $("<input type='text' class='skillpoint-data csp-display' disabled>");
 
     //append section title
     skillpointsSelector.append(headerTitle);

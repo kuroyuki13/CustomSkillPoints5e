@@ -1,3 +1,35 @@
+.dnd5e.sheet.actor .skills-list > .skill-points-menu {
+    border: 1px gray solid;
+    border-radius: 5px;
+    margin: 1px;
+    padding: 2px;
+}
+
+.dnd5e.sheet.actor .skills-list > .skill-points-menu .csp-title {
+    font-size: small;
+    text-align: center;
+    font-weight: bold;
+}
+
+.dnd5e.sheet.actor .skills-list > .skill-points-menu .csp-label {
+    font-size: smaller;
+    flex: 3;
+}
+
+.dnd5e.sheet.actor .skills-list > .skill-points-menu .csp-input {
+    border: 1px gray solid;
+    flex: auto;
+    max-width: 10px;
+}
+
+.dnd5e.sheet.actor .skills-list > .skill-points-menu .csp-display {
+    border: 1px gray dotted;
+}
+
+.dnd5e.sheet.actor .skills-list > .skill-points-menu .csp-wrapper {
+    align-items: baseline;
+}
+
 
 .dnd5e.sheet.actor .skills-list > .skill > .skill-ability-select,
 .dnd5e.sheet.actor .skills-list > .skill > .skill-points-assigned {
@@ -25,11 +57,6 @@
 
 .dnd5e.sheet.actor ul.skills-list li.skill .skill-mod {
     text-align: center;
-}
-
-.dnd5e.sheet.actor li.skills-list .skill-points-menu {
-    color: red;
-    border: 1px gray solid;
 }
 
 .dnd5e.sheet.actor:not(.alt5e):not(.tidy5e) ul.skills-list {
