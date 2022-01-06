@@ -1,4 +1,3 @@
-import { registerSettings } from "../combat-utility-belt/modules/settings.js";
 import { libWrapper } from "./lib/libWrapper/shim.js";
 
 const EMPTY_VALUE = "-";
@@ -6,9 +5,7 @@ const MODULE_NAME = "CustomSkillPoints5e";
 const SKILL_POINTS_ASSIGNED = "skill-points-assigned";
 const SKILL_NPROFS = 'proficiency_number';
 const SKILL_POINTS = 'skill_points_amount';
-const SKILL_POINTS_SPENT = 'skill_points_spent'
-const DOWNSHIFT_NONE = 'downshift_none';
-const DOWNSHIFT_ONCE = 'downshift_one_level'
+const SKILL_POINTS_SPENT = 'skill_points_spent';
 
 
 Hooks.once('init', () => {
@@ -23,10 +20,10 @@ Hooks.once("setup", () => {
 Hooks.on("renderActorSheet", injectActorSheet);
 
 function RegisterSettings(){
-    game.settings.register(MODULE_NAME, "downshiftAmmount",{
+    game.settings.register(MODULE_NAME, "downshiftAmount",{
         name: "downshift formula",
-        hint: "how to calculate the available skill spoints. downshift two levels will on average be closest in total skill points to the original proficiency system."+ 
-        "downshift none gives more skillpoints, downshift three gives less. ",
+        hint: "how to calculate the available skill points. downshift two levels will on average be closest in total skill points to the original proficiency system."+ 
+        "downshift none gives more skillpoints, downshift three gives less.",
         scope: "world",
         type: Number,
         choices: {
@@ -49,7 +46,7 @@ function RegisterSettings(){
         config: true
     });
 
-    game.settings.register(MODULE_NAME, "useCusomtSkillPoints",{
+    game.settings.register(MODULE_NAME, "useCustomSkillPoints",{
         name: "useCustomSkillPoints",
         hint: "client side decision wether to use the custom skill points. If disabled, will not draw the sections on the character sheet and do the rolls",
         scope: "client",
@@ -60,75 +57,64 @@ function RegisterSettings(){
     });
 }
 
-//calculate how many skill points actor should have depending in number of skill proficiencies.
 function CalculateSkillPoints(actor) {
-
-    let level = actor.data.data.details.level;
-    let nprof = actor.getFlag(MODULE_NAME, SKILL_NPROFS);
-    //this.getFlag(MODULE_NAME, `${skillId}.${SKILL_POINTS_ASSIGNED}`);
-    let downshift = game.settings.get(MODULE_NAME, "downshiftAmmount");
-    let sp = Math.round( ((nprof / 4) * (level -downshift)) + (2 * nprof));
-    return sp;
+    const level = actor.data.data.details.level;
+    const proficiencyCount = actor.getFlag(MODULE_NAME, SKILL_NPROFS);
+    const downshift = game.settings.get(MODULE_NAME, "downshiftAmount");
+    return Math.round( ((proficiencyCount / 4) * (level -downshift)) + (2 * proficiencyCount));
 }
 
 function GetSpendPoints(actor) {
     const skills = actor.data.data.skills;
     let spentPoints = 0;
     for (let key in skills) {
-        //let skill = skills[key];
         let bonus = actor.getFlag(MODULE_NAME, `${key}.${SKILL_POINTS_ASSIGNED}`) || 0;
-        let bonusAsInt = parseInt(Number(bonus));
-
-        if (!isNaN(bonusAsInt)) {
-            spentPoints += bonusAsInt;
-        }
+        spentPoints += bonus;
     }
     return spentPoints;
 }
 
 function patchActor5ePrepareData() {
-    libWrapper.register(MODULE_NAME, "CONFIG.Actor.documentClass.prototype.prepareData", function patchedPrepareData(wrapped, ...args) {
-    wrapped(...args);
-    
-    if (!game.settings.get(MODULE_NAME, "useCusomtSkillPoints")){
-      return;  
-    } 
+    function patchedPrepareData(wrapped, ...args) {
+        wrapped(...args);
+        
+        if (!game.settings.get(MODULE_NAME, "useCustomSkillPoints")){
+        return;  
+        } 
 
         const skills = this.data.data.skills;
-        let nprof = 0;
+
         for (let key in skills) {
-            let skill = skills[key];
-            let bonus = this.getFlag(MODULE_NAME, `${key}.${SKILL_POINTS_ASSIGNED}`) || 0;
-            let bonusAsInt = parseInt(Number(bonus));
+            const skill = skills[key];
+            const bonus = this.getFlag(MODULE_NAME, `${key}.${SKILL_POINTS_ASSIGNED}`) || 0;
 
-            if (!isNaN(bonusAsInt)) {
-                skill.total += bonusAsInt;
-                // recalculate passive score, taking observant feat into account
-                const observant = this.data.flags.dnd5e?.observantFeat;
-                const passiveBonus = observant && CONFIG.DND5E.characterFlags.observantFeat.skills.includes(key) ? 5 : 0;
-                skill.passive = 10 + skill.total + passiveBonus;
-            }
-        }
+            skill.total += bonus;
+            // recalculate passive score, taking observant feat into account
+            const observant = this.data.flags.dnd5e?.observantFeat;
+            const passiveBonus = observant && CONFIG.DND5E.characterFlags.observantFeat.skills.includes(key) ? 5 : 0;
+            skill.passive = 10 + skill.total + passiveBonus;
+        };
+    };
 
-    }, "WRAPPER");
+    libWrapper.register(MODULE_NAME, "CONFIG.Actor.documentClass.prototype.prepareData", patchedPrepareData, "WRAPPER");
 }
 
 function patchActor5eRollSkill() {
-    libWrapper.register(MODULE_NAME, "CONFIG.Actor.documentClass.prototype.rollSkill", function patchedRollSkill(wrapped, ...args) {
+    function patchedRollSkill(wrapped, ...args) {
 
-        if (!game.settings.get(MODULE_NAME, "useCusomtSkillPoints")){
+        if (!game.settings.get(MODULE_NAME, "useCustomSkillPoints")){
             return;  
         } 
 
         const [ skillId, options ] = args;
         const skillBonus = this.getFlag(MODULE_NAME, `${skillId}.${SKILL_POINTS_ASSIGNED}`);
-        let bonus = 0;
-        let negateProf = 0;
+        let bonus;
+        let negateProf;
         if (skillBonus) {
             bonus = skillBonus;
 
         }
-        let activeSkill = this.data.data.skills[skillId];
+        const activeSkill = this.data.data.skills[skillId];
         if (activeSkill.prof.hasProficiency) {
             negateProf = activeSkill.prof._baseProficiency * -1;
         }
@@ -141,16 +127,17 @@ function patchActor5eRollSkill() {
             },
         };
         mergeObject(options, extraOptions);
-        mergeObject(options, extraOptions);
 
         return wrapped(...args);
-    });
+    };
+
+    libWrapper.register(MODULE_NAME, "CONFIG.Actor.documentClass.prototype.rollSkill", patchedRollSkill);
 }
 
-function injectActorSheet(app, html, data) {
+function injectActorSheet(app, html, _data) {
     const actor = app.actor;
 
-    if (!game.settings.get(MODULE_NAME, "useCusomtSkillPoints")){
+    if (!game.settings.get(MODULE_NAME, "useCustomSkillPoints")){
         return;  
     } 
 
@@ -207,14 +194,14 @@ function CreateSkillPointsBox(actor, html) {
     let profInputOuter = $("<div class='proficiency-input flexrow'></div>");
     //second line children
     let profInputText = $("<div>Proficiencies: </div>");
-    let profInputBox = $("<input type = 'text' size=2 class = 'profInput' id='profInput'>");
+    let profInputBox = $("<input type='number' size=2 class='profInput' id='profInput'>");
     //third line parent
     let skillPointsDataOuter = $("<div class='skillpoint-data flexrow'></div>");
     //third line children
-    let skillPointsAvailableText = $("<div> available: </div>");
-    let skillPointsAvailableInfo = $("<input type = 'text' size=2 class = 'skillpoint-data' disabled>");
-    let skillPointsSpentText = $("<div> spent: </div>");
-    let skillPointsSpentInfo = $("<input type = 'text' size=2 class = 'skillpoint-data' disabled>");
+    let skillPointsAvailableText = $("<div>Available:</div>");
+    let skillPointsAvailableInfo = $("<input type='text' size=2 class='skillpoint-data' disabled>");
+    let skillPointsSpentText = $("<div>Spent:</div>");
+    let skillPointsSpentInfo = $("<input type='text' size=2 class='skillpoint-data' disabled>");
 
     //append section title
     skillpointsSelector.append(headerTitle);
@@ -240,20 +227,10 @@ function CreateSkillPointsBox(actor, html) {
             await actor.unsetFlag(MODULE_NAME, SKILL_NPROFS);
             profInputBox.val(EMPTY_VALUE);
         }
-        else {
-            try {
-                const valid = !isNaN(numberOfProf);
-                if (!isNaN(numberOfProf)) {
-                    await actor.setFlag(MODULE_NAME, SKILL_NPROFS, numberOfProf);
-                    let sp = CalculateSkillPoints(actor);
-                    await actor.setFlag(MODULE_NAME, SKILL_POINTS, sp);
-                }
-                else {
-                    profInputBox.val(actor.getFlag(MODULE_NAME, SKILL_NPROFS) || EMPTY_VALUE);
-                }
-            } catch (err) {
-                profInputBox.val(actor.getFlag(MODULE_NAME, SKILL_NPROFS) || EMPTY_VALUE);
-            }
+        else {         
+            await actor.setFlag(MODULE_NAME, SKILL_NPROFS, numberOfProf);
+            let sp = CalculateSkillPoints(actor);
+            await actor.setFlag(MODULE_NAME, SKILL_POINTS, sp);
         }
     });
     //append the box to the 2nd line
@@ -261,13 +238,13 @@ function CreateSkillPointsBox(actor, html) {
 
     //set text value for available skills points and append
     skillPointDataSelector.append(skillPointsAvailableText);
-    let availablePoints = actor.getFlag(MODULE_NAME, SKILL_POINTS)
+    const availablePoints = actor.getFlag(MODULE_NAME, SKILL_POINTS)
     skillPointsAvailableInfo.val(availablePoints || EMPTY_VALUE);
     skillPointDataSelector.append(skillPointsAvailableInfo);
 
     //set text and value for spent skill points and append
     skillPointDataSelector.append(skillPointsSpentText);
-    let spentPoints = actor.getFlag(MODULE_NAME, SKILL_POINTS_SPENT);
+    const spentPoints = actor.getFlag(MODULE_NAME, SKILL_POINTS_SPENT);
     skillPointsSpentInfo.val(spentPoints || EMPTY_VALUE);
     skillPointDataSelector.append(skillPointsSpentInfo);
 }
@@ -280,7 +257,7 @@ function CreateSkillPointAssignment(actor, html) {
         const skillKey = $(this).attr("data-skill");
         const assignedPointsKey = `${skillKey}.${SKILL_POINTS_ASSIGNED}`;
         const selectedAbility = actor.data.data.skills[skillKey].ability;
-        /**/
+
         let selectElement = $("<select>");
         selectElement.addClass("skill-ability-select");
         Object.keys(actor.data.data.abilities).forEach((ability) => {
