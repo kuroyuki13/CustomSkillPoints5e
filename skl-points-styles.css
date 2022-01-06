@@ -22,8 +22,8 @@
 .dnd5e.sheet.actor .skills-list > .skill-points-menu .csp-input {
     border: 1px gray solid;
     flex: auto;
-    max-width: 25px;
     margin-right: 10px;
+    max-width: 25px;
     text-align: center;
 }
 
