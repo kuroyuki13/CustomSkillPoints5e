@@ -13,5 +13,7 @@
   "styles": [
     "skl-points-styles.css"
   ],
-  "minimumCoreVersion": "0.6.2"
+  "minimumCoreVersion": "0.6.2",
+  "url" : "https://github.com/kuroyuki13/CustomSkillPoints5e",
+  "manifest" : "https://github.com/kuroyuki13/CustomSkillPoints5e/edit/main/module.json"
 }
